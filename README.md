@@ -1,95 +1,45 @@
-# Repo Continuity Skills
+# repo-continuity-skills
 
-Repo-local continuity skills for coding agents. These two skills let an agent
-save the exact working lane into the repository itself, then recover it quickly
-in the next session without relying on fragile external chat memory.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+**English** | [**中文**](./README.zh-CN.md)
 
-面向编码 agent 的仓库内连续性技能。这两个 skill 用来把当前工作进度直接
-落到仓库里，并在下次重开会话时快速恢复，不依赖外部聊天上下文是否还在。
+Repo-local continuity skills for coding agents. These two skills save the exact
+working lane into the repository itself, then recover it quickly in the next
+session without relying on fragile external chat memory.
 
-## Included Skills / 包含的 Skill
+## What It Does
 
-- `repo-checkpoint`
-  - Save a timestamped progress handoff under `.agents/checkpoints/`
-  - 把当前进度保存成带时间戳的仓库内交接文档
-- `repo-resume`
-  - Recover the latest active lane from the newest checkpoint plus git state
-  - 从最新 checkpoint 和当前 git 状态中快速恢复主线
+- **repo-checkpoint** — Writes a timestamped markdown handoff under
+  `.agents/checkpoints/`, including session goal, current state, key chat
+  context, files in play, verification state, next step, and git snapshot.
+- **repo-resume** — Restores the latest active lane from the newest checkpoint
+  plus current git branch, working tree, and recent commits.
 
-## Why This Exists / 为什么需要它
+**Why this exists:** Most agents can reread code, but that is not enough. What
+usually gets lost is the human context: what the user actually wanted, what was
+already tried, what constraints mattered, and what the next concrete step
+should be.
 
-Coding sessions often break in the middle of useful work:
+## Features
 
-- the chat window is closed
-- the tool loses context
-- the machine changes
-- the next session starts from a cold state
+- Repo-local checkpoints stored inside `.agents/checkpoints/`
+- Fast resume path based on the latest saved handoff instead of broad repo
+  exploration
+- Captures both code state and user/project context
+- Works across machines as long as the repo and the skill directories exist
+- No database, daemon, or cloud service required
+- Plain `python3` + `git` workflow
 
-Most agents can inspect code, but that is not enough. The missing part is the
-human and project context:
+## Install
 
-- what the user really wanted
-- what constraints mattered
-- what was already tried
-- which files were relevant
-- what the very next step should be
-
-This bundle stores that context inside the repository so the recovery path is
-fast, explicit, and reproducible.
-
-很多开发会话会在中途断掉：
-
-- 聊天窗口关了
-- agent 上下文丢了
-- 换了电脑
-- 新会话冷启动
-
-只靠重新读代码，通常恢复不到位。真正容易丢的是这些信息：
-
-- 用户真实目标是什么
-- 哪些约束不能破
-- 哪些路径已经试过
-- 哪些文件正在参与这条主线
-- 下一步最该做什么
-
-这个仓库的目的，就是把这些信息保存在仓库内部，让恢复动作变得可执行、
-可重复、可迁移。
-
-## Repository Layout / 仓库结构
-
-```text
-repo-continuity-skills/
-├── repo-checkpoint/
-│   ├── SKILL.md
-│   └── scripts/
-│       └── save_checkpoint.py
-├── repo-resume/
-│   ├── SKILL.md
-│   └── scripts/
-│       └── resume_snapshot.py
-├── install-repo-skills.sh
-├── dist/
-│   └── repo-skills-bundle.tar.gz
-├── README.md
-└── LICENSE
-```
-
-## Requirements / 运行要求
+### Prerequisites
 
 - `python3`
 - `git`
-- a git repository as the working directory when using the scripts
-- 在执行脚本时，当前目录必须是一个 git 仓库
+- A skill runtime that loads skills from `~/.agents/skills` or an equivalent
+  vendored location
 
-No external database, daemon, or cloud service is required.
-
-不需要额外数据库、后台服务或云端依赖。
-
-## Installation / 安装方式
-
-### Option A: Installer Script / 方式 A：安装脚本
-
-Run:
+### Option 1: Run the installer
 
 ```bash
 bash install-repo-skills.sh
@@ -107,16 +57,15 @@ Custom install target:
 bash install-repo-skills.sh --target /path/to/skills
 ```
 
-### Option B: Manual Copy / 方式 B：手工拷贝
+### Option 2: Clone the repo
 
-Copy these two directories to your skill directory:
-
-```text
-repo-checkpoint/
-repo-resume/
+```bash
+git clone https://github.com/hotalexnet/repo-continuity-skills.git
+cd repo-continuity-skills
+bash install-repo-skills.sh
 ```
 
-For example:
+### Option 3: Copy the skill folders directly
 
 ```bash
 mkdir -p ~/.agents/skills
@@ -124,96 +73,49 @@ cp -R repo-checkpoint ~/.agents/skills/
 cp -R repo-resume ~/.agents/skills/
 ```
 
-这也是跨机器复用时最直接的方式：只要把这两个 skill 目录拷过去即可。
+## Usage
 
-## What `repo-checkpoint` Does / `repo-checkpoint` 做什么
+### repo-checkpoint
 
-Inside a target repository, it creates a timestamped markdown checkpoint under:
+Use when the user says things like:
 
-```text
-.agents/checkpoints/
-```
+- "save progress"
+- "checkpoint this"
+- "capture the current lane"
+- "write down what matters before closing"
 
-The checkpoint captures:
-
-- session goal
-- current state
-- key chat context
-- files in play
-- verification state
-- next step
-- resume recipe
-- git snapshot
-
-也就是说，它保存的不只是代码状态，还包括这条主线真正需要的“人类上下文”。
-
-### Manual Command / 手动命令
-
-From the target repo root:
+Manual command from the target repo root:
 
 ```bash
 python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "my-work"
 ```
 
-If the skill is vendored inside the target repo, run the vendored script path
-instead.
+### repo-resume
 
-### Typical Use Cases / 常见触发场景
-
-- "save progress"
-- "checkpoint this"
-- "write down where we are before closing"
-- "capture the key chat context"
-- “保存进度”
-- “打个 checkpoint”
-- “关之前把当前状态记下来”
-- “把关键上下文落一下”
-
-## What `repo-resume` Does / `repo-resume` 做什么
-
-It restores the latest working lane by combining:
-
-1. the newest repo-local checkpoint
-2. current branch and working tree state
-3. recent commits
-4. only the files named by the checkpoint, unless the checkpoint is stale
-
-它的核心不是“重新广泛扫一遍仓库”，而是“先从上次明确保存的上下文切入”。
-
-### Manual Command / 手动命令
-
-From the target repo root:
-
-```bash
-python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
-```
-
-### Typical Use Cases / 常见触发场景
+Use when the user says things like:
 
 - "resume previous work"
 - "continue where we left off"
 - "recover the exact current lane"
 - "what was I doing here"
-- “恢复上次进度”
-- “继续刚才那条主线”
-- “把当前 lane 找回来”
-- “我上次在这里做到哪了”
 
-## Recommended Workflow / 推荐工作流
+Manual command from the target repo root:
 
-### 1. Before closing a session / 结束前
+```bash
+python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
+```
+
+## Recommended Workflow
+
+### 1. Before closing a session
 
 Run or trigger `repo-checkpoint`.
 
-执行 `repo-checkpoint`，把这轮主线信息沉淀到仓库里。
-
-### 2. When reopening later / 下次重开时
+### 2. When reopening later
 
 Run or trigger `repo-resume`.
 
-执行 `repo-resume`，先恢复精确上下文，再决定是否继续展开搜索。
-
-### 3. Keep the checkpoint actionable / 保证 checkpoint 可执行
+### 3. Keep the checkpoint actionable
 
 A good checkpoint should let the next session answer these questions quickly:
 
@@ -223,11 +125,9 @@ A good checkpoint should let the next session answer these questions quickly:
 - Which files matter first?
 - What should happen next?
 
-一个好的 checkpoint，应该能让下一轮会话在几十秒内进入主线，而不是重新猜题。
+## Example Output
 
-## Example Output Location / 示例输出位置
-
-After running `repo-checkpoint`, you will typically get files like:
+Typical checkpoint files:
 
 ```text
 .agents/checkpoints/2026-05-12-ship-docs.md
@@ -236,7 +136,25 @@ After running `repo-checkpoint`, you will typically get files like:
 
 The exact filename is generated by the checkpoint script.
 
-## Multi-Machine Usage / 多机器使用
+## How It Works
+
+```text
+Current coding session
+    ↓
+repo-checkpoint
+    ↓
+Timestamped markdown handoff under .agents/checkpoints/
+    ↓
+New session starts later
+    ↓
+repo-resume
+    ↓
+Latest checkpoint + git state + active files
+    ↓
+Continue the exact lane with minimal cold-start cost
+```
+
+## Multi-Machine Usage
 
 This repository is designed for cross-machine reuse.
 
@@ -246,10 +164,7 @@ You can either:
 - copy `repo-checkpoint/` and `repo-resume/` directly into that machine's
   `~/.agents/skills/`
 
-这也是它和“只依赖某个聊天平台历史记录”的本质区别：只要仓库和 skill 在，
-恢复路径就在。
-
-## Updating / 更新方式
+## Updating
 
 If you already installed an older version, rerun:
 
@@ -262,20 +177,38 @@ The installer replaces:
 - `~/.agents/skills/repo-checkpoint`
 - `~/.agents/skills/repo-resume`
 
-## Safety Notes / 使用注意
+## Project Structure
 
-- These skills write checkpoint files into the target repository.
-- They do not rewrite git history.
-- They do not require network access.
-- They are only as good as the checkpoint content you keep current.
+```text
+repo-continuity-skills/
+├── README.md
+├── README.zh-CN.md
+├── LICENSE
+├── install-repo-skills.sh
+├── dist/
+│   └── repo-skills-bundle.tar.gz
+├── repo-checkpoint/
+│   ├── SKILL.md
+│   └── scripts/
+│       └── save_checkpoint.py
+└── repo-resume/
+    ├── SKILL.md
+    └── scripts/
+        └── resume_snapshot.py
+```
 
-- 这两个 skill 会往目标仓库写入 checkpoint 文档
-- 不会改写 git 历史
-- 不依赖联网
-- 恢复质量取决于 checkpoint 内容是否具体、及时
+## License
 
-## License / 许可证
+[MIT License](LICENSE)
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE).
+## Acknowledgments
 
-本项目采用 MIT 许可证，详见 [LICENSE](LICENSE)。
+- Repo-local continuity workflow patterns developed during long-running coding
+  sessions
+- Git, for making branch and working tree state easy to snapshot and recover
+
+---
+
+⚠️ **Note:** These skills are only as useful as the checkpoint quality you keep
+current. Concrete files, constraints, verification state, and next actions are
+what make resume fast.
