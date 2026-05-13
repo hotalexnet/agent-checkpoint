@@ -1,34 +1,135 @@
 # repo-continuity-skills
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Runtime: Python 3](https://img.shields.io/badge/runtime-python3-blue.svg)](https://www.python.org/)
+[![State: Repo Local](https://img.shields.io/badge/state-repo--local-2ea44f.svg)](#how-it-works)
 **English** | [**中文**](./README.zh-CN.md)
 
-Repo-local continuity skills for coding agents. These two skills save the exact
-working lane into the repository itself, then recover it quickly in the next
-session without relying on fragile external chat memory.
+Repo-local continuity skills for coding agents.
+
+These two skills turn "I lost the thread" into a recoverable workflow: save the
+real working lane into the repository itself, then restore it in the next
+session without depending on fragile external chat memory.
+
+## Demo
+
+![Terminal demo of repo-checkpoint and repo-resume](./assets/demo.gif)
 
 ## What It Does
 
-- **repo-checkpoint** — Writes a timestamped markdown handoff under
+- **repo-checkpoint** — writes a timestamped markdown handoff under
   `.agents/checkpoints/`, including session goal, current state, key chat
-  context, files in play, verification state, next step, and git snapshot.
-- **repo-resume** — Restores the latest active lane from the newest checkpoint
-  plus current git branch, working tree, and recent commits.
+  context, files in play, verification state, next step, and a git snapshot.
+- **repo-resume** — restores the latest active lane from the newest checkpoint
+  plus current branch, working tree, and recent commits.
 
-**Why this exists:** Most agents can reread code, but that is not enough. What
-usually gets lost is the human context: what the user actually wanted, what was
-already tried, what constraints mattered, and what the next concrete step
-should be.
+**Why this exists:** Most agents can reread code. What they usually lose is the
+human context: what the user actually wanted, what was already tried, which
+constraints mattered, and what the next concrete step should be.
 
-## Features
+## Why It Matters
 
-- Repo-local checkpoints stored inside `.agents/checkpoints/`
-- Fast resume path based on the latest saved handoff instead of broad repo
-  exploration
-- Captures both code state and user/project context
-- Works across machines as long as the repo and the skill directories exist
-- No database, daemon, or cloud service required
-- Plain `python3` + `git` workflow
+- **Repo-local, not session-local** — the handoff lives inside the repo, so it
+  survives model switches, browser restarts, shell reconnects, and machine
+  changes.
+- **Plain markdown, no lock-in** — checkpoints are readable in any editor and
+  reviewable in git.
+- **Fast cold start** — resume goes straight to the last known lane instead of
+  broad repo exploration.
+- **Human context included** — goal, constraints, rejected paths, and next
+  actions are captured explicitly.
+- **Works even without an agent runtime** — both scripts can be run manually.
+
+## Best For
+
+- long-running debugging or refactor sessions
+- interruptions during implementation or review
+- switching between local machine, remote box, and another agent session
+- repos where "what were we actually doing?" is more expensive than reading the
+  code
+
+## Quick Start
+
+```bash
+git clone https://github.com/hotalexnet/repo-continuity-skills.git
+cd repo-continuity-skills
+bash install-repo-skills.sh
+```
+
+From the target repo root:
+
+```bash
+# End of session: create a scaffold, then fill in the TODOs
+python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py \
+  --title "chat-routing-root-cause"
+
+# Next session: recover the latest lane
+python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
+```
+
+## Example Flow
+
+```text
+Session A:
+- investigating a routing bug
+- several files open
+- one failed approach already ruled out
+        ↓
+repo-checkpoint
+        ↓
+.agents/checkpoints/20260513-114233-chat-routing-root-cause.md
+        ↓
+Session B starts later on the same or another machine
+        ↓
+repo-resume
+        ↓
+latest checkpoint + branch + working tree + recent commits
+        ↓
+continue from the real next step instead of re-deriving intent
+```
+
+## What Gets Saved
+
+Each checkpoint keeps these top-level sections:
+
+- `Session Goal`
+- `Current State`
+- `Key Chat Context`
+- `Files In Play`
+- `Verification`
+- `Next Step`
+- `Resume Recipe`
+- `Git Snapshot`
+
+That is the real value here: not just code state, but the reasoning state around
+the code.
+
+## Example Checkpoint Content
+
+```md
+## Session Goal
+- Fix the chat fallback so non-matching questions stop returning stale onboarding guidance.
+
+## Current State
+- Router fix is implemented locally.
+- Local smoke test passed.
+- Staging behavior still needs separate verification.
+
+## Key Chat Context
+- User wants root-cause-level cleanup, not a keyword patch.
+- Old onboarding copy must stop leaking into normal chat replies.
+- Do not broaden scope into model switching yet.
+
+## Files In Play
+- src/chat/router.py
+- src/prompts/chat_prompt.py
+- tests/test_chat_router.py
+
+## Next Step
+1. Reproduce against the current deploy path.
+2. Verify fallback selection with 3 representative prompts.
+3. Commit only after the bad greeting path is gone.
+```
 
 ## Install
 
@@ -36,8 +137,8 @@ should be.
 
 - `python3`
 - `git`
-- A skill runtime that loads skills from `~/.agents/skills` or an equivalent
-  vendored location
+- a skill runtime that loads skills from `~/.agents/skills`, or a vendored
+  skill path inside your own tooling
 
 ### Option 1: Run the installer
 
@@ -75,33 +176,15 @@ cp -R repo-resume ~/.agents/skills/
 
 ## Usage
 
-### repo-checkpoint
+| Trigger or need | Action |
+|-----------------|--------|
+| "save progress" / "checkpoint this" | run `repo-checkpoint` |
+| "continue where we left off" / "what was I doing?" | run `repo-resume` |
 
-Use when the user says things like:
-
-- "save progress"
-- "checkpoint this"
-- "capture the current lane"
-- "write down what matters before closing"
-
-Manual command from the target repo root:
+Manual commands from the target repo root:
 
 ```bash
 python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "my-work"
-```
-
-### repo-resume
-
-Use when the user says things like:
-
-- "resume previous work"
-- "continue where we left off"
-- "recover the exact current lane"
-- "what was I doing here"
-
-Manual command from the target repo root:
-
-```bash
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
 ```
 
@@ -109,15 +192,15 @@ python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
 
 ### 1. Before closing a session
 
-Run or trigger `repo-checkpoint`.
+Run `repo-checkpoint`, then replace every `TODO` with concrete session state.
 
 ### 2. When reopening later
 
-Run or trigger `repo-resume`.
+Run `repo-resume` first, before broad repo exploration.
 
-### 3. Keep the checkpoint actionable
+### 3. Keep the checkpoint executable
 
-A good checkpoint should let the next session answer these questions quickly:
+A good checkpoint should answer these questions fast:
 
 - What are we trying to finish?
 - What is already true?
@@ -125,16 +208,13 @@ A good checkpoint should let the next session answer these questions quickly:
 - Which files matter first?
 - What should happen next?
 
-## Example Output
+## Why Repo-Local Beats External Chat Memory
 
-Typical checkpoint files:
-
-```text
-.agents/checkpoints/2026-05-12-ship-docs.md
-.agents/checkpoints/2026-05-13-chat-routing-fix.md
-```
-
-The exact filename is generated by the checkpoint script.
+- external session memory is often unavailable, partial, or tool-specific
+- a repo-local handoff travels with the codebase
+- teammates and future-you can inspect it without special software
+- the checkpoint can be committed, ignored, copied, or archived with normal git
+  habits
 
 ## How It Works
 
@@ -149,14 +229,19 @@ New session starts later
     ↓
 repo-resume
     ↓
-Latest checkpoint + git state + active files
+Latest checkpoint + current git state
     ↓
 Continue the exact lane with minimal cold-start cost
 ```
 
-## Multi-Machine Usage
+## Compatibility
 
-This repository is designed for cross-machine reuse.
+- Any git repository
+- Local machine or remote server
+- Cross-machine reuse by cloning or copying the skill folders
+- Manual CLI use, even if your agent runtime does not auto-load skills
+
+## Multi-Machine Usage
 
 You can either:
 
@@ -177,6 +262,13 @@ The installer replaces:
 - `~/.agents/skills/repo-checkpoint`
 - `~/.agents/skills/repo-resume`
 
+## Limits
+
+- Resume quality depends on checkpoint quality.
+- The scaffold is intentionally simple; it does not auto-summarize your whole
+  session for you.
+- If you leave the `TODO`s blank, future-you still has to reconstruct intent.
+
 ## Project Structure
 
 ```text
@@ -184,6 +276,8 @@ repo-continuity-skills/
 ├── README.md
 ├── README.zh-CN.md
 ├── LICENSE
+├── assets/
+│   └── demo.gif
 ├── install-repo-skills.sh
 ├── dist/
 │   └── repo-skills-bundle.tar.gz
@@ -191,10 +285,12 @@ repo-continuity-skills/
 │   ├── SKILL.md
 │   └── scripts/
 │       └── save_checkpoint.py
-└── repo-resume/
-    ├── SKILL.md
-    └── scripts/
-        └── resume_snapshot.py
+├── repo-resume/
+│   ├── SKILL.md
+│   └── scripts/
+│       └── resume_snapshot.py
+└── scripts/
+    └── generate_demo_gif.py
 ```
 
 ## License
@@ -209,6 +305,6 @@ repo-continuity-skills/
 
 ---
 
-⚠️ **Note:** These skills are only as useful as the checkpoint quality you keep
-current. Concrete files, constraints, verification state, and next actions are
-what make resume fast.
+⚠️ **Note:** Concrete files, constraints, verification state, and next actions
+are what make resume fast. The more specific your checkpoint is, the more
+valuable the next session becomes.
