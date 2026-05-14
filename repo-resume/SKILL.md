@@ -22,8 +22,17 @@ script from the vendored path.
 
 1. Read the latest repo-local checkpoint under `.agents/checkpoints/` if present.
 2. Check git branch, working tree, and recent commits.
-3. If the repo has `PROJECT_STATUS.md`, read it after the checkpoint, not before.
-4. Open only the files named in `Files In Play` or `Next Step` unless the checkpoint is stale.
+3. Open only the files named in `Files In Play` or `Next Step` unless the checkpoint is stale.
+
+## Checkpoint management
+
+```bash
+# List all checkpoints
+python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py list
+
+# Prune old checkpoints, keep 5 most recent
+python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py prune 5
+```
 
 ## Report shape
 

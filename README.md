@@ -180,12 +180,16 @@ cp -R repo-resume ~/.agents/skills/
 |-----------------|--------|
 | "save progress" / "checkpoint this" | run `repo-checkpoint` |
 | "continue where we left off" / "what was I doing?" | run `repo-resume` |
+| "show all checkpoints" | run `repo-resume list` |
+| "clean up old checkpoints" | run `repo-resume prune 5` |
 
 Manual commands from the target repo root:
 
 ```bash
 python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "my-work"
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
+python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py list
+python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py prune 5
 ```
 
 ## Recommended Workflow
@@ -269,12 +273,26 @@ The installer replaces:
   session for you.
 - If you leave the `TODO`s blank, future-you still has to reconstruct intent.
 
+## .gitignore
+
+Checkpoints are stored under `.agents/checkpoints/`. You can either commit them
+(so teammates can resume each other's work) or gitignore them (private notes):
+
+```gitignore
+# Option A: ignore all checkpoints
+.agents/checkpoints/
+
+# Option B: keep them in git — add nothing to .gitignore
+```
+
 ## Project Structure
 
 ```text
 repo-continuity-skills/
 ├── README.md
 ├── README.zh-CN.md
+├── CHANGELOG.md
+├── VERSION
 ├── LICENSE
 ├── assets/
 │   └── demo.gif
@@ -289,6 +307,10 @@ repo-continuity-skills/
 │   ├── SKILL.md
 │   └── scripts/
 │       └── resume_snapshot.py
+├── tests/
+│   ├── conftest.py
+│   ├── test_checkpoint.py
+│   └── test_resume.py
 └── scripts/
     └── generate_demo_gif.py
 ```

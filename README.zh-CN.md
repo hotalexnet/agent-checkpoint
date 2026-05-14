@@ -173,12 +173,16 @@ cp -R repo-resume ~/.agents/skills/
 |--------------|------|
 | “保存进度” / “打个 checkpoint” | 运行 `repo-checkpoint` |
 | “继续刚才那条主线” / “我上次在这里做到哪了” | 运行 `repo-resume` |
+| “列出所有 checkpoint” | 运行 `repo-resume list` |
+| “清理旧 checkpoint” | 运行 `repo-resume prune 5` |
 
 在目标仓库根目录手动执行：
 
 ```bash
 python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "my-work"
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
+python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py list
+python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py prune 5
 ```
 
 ## 推荐工作流
@@ -260,12 +264,25 @@ bash install-repo-skills.sh
 - 这个骨架是刻意保持简单的，它不会替你自动总结整轮会话。
 - 如果 `TODO` 没填，下一轮仍然要靠人自己补意图。
 
+## .gitignore 建议
+
+Checkpoint 保存在 `.agents/checkpoints/` 下。你可以选择提交到 git（方便团队成员互相恢复上下文），也可以选择 gitignore（当个人笔记用）：
+
+```gitignore
+# 方式 A：忽略所有 checkpoint
+.agents/checkpoints/
+
+# 方式 B：提交到 git — 不需要加任何 .gitignore 规则
+```
+
 ## 项目结构
 
 ```text
 repo-continuity-skills/
 ├── README.md
 ├── README.zh-CN.md
+├── CHANGELOG.md
+├── VERSION
 ├── LICENSE
 ├── assets/
 │   └── demo.gif
@@ -280,6 +297,10 @@ repo-continuity-skills/
 │   ├── SKILL.md
 │   └── scripts/
 │       └── resume_snapshot.py
+├── tests/
+│   ├── conftest.py
+│   ├── test_checkpoint.py
+│   └── test_resume.py
 └── scripts/
     └── generate_demo_gif.py
 ```

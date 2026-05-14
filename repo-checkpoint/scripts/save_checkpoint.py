@@ -48,11 +48,11 @@ git_state: {git_state}
 # {title}
 
 ## Session Goal
-- TODO: 这轮要完成什么，完成到什么算结束。
+- TODO: What to accomplish this session and the definition of done.
 
 ## Current State
 - Working tree: `{git_state}`
-- TODO: 当前已经做到哪一步，哪些改动已落地，哪些还在半路。
+- TODO: Where things stand — what is landed, what is still in progress.
 
 ## Key Chat Context
 - User goal: TODO
@@ -62,16 +62,16 @@ git_state: {git_state}
 - Exact wording worth preserving: TODO
 
 ## Files In Play
-- TODO: 列出真正相关的代码、文档、脚本、数据路径。
+- TODO: List the files, docs, scripts, and data paths that matter.
 
 ## Verification
-- TODO: 已运行的测试 / 验收 / 手测。
-- TODO: 明确写未验证项，不要假装已经验证。
+- TODO: Tests / acceptance checks / manual tests already run.
+- TODO: Explicitly note what has NOT been verified yet.
 
 ## Next Step
-1. TODO: 下次继续时第一步先做什么。
-2. TODO: 第二步做什么。
-3. TODO: blocker / assumption 是什么。
+1. TODO: First thing to do when resuming.
+2. TODO: Second thing.
+3. TODO: Blockers or assumptions to watch for.
 
 ## Resume Recipe
 - Run `python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py`
@@ -93,6 +93,7 @@ git_state: {git_state}
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Create a repo-local checkpoint scaffold.")
+    parser.add_argument("--version", action="version", version="repo-checkpoint 0.2.0")
     parser.add_argument("--title", default="progress-checkpoint", help="Short title for the checkpoint filename and header.")
     args = parser.parse_args()
 
