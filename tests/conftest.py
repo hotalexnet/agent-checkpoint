@@ -1,4 +1,4 @@
-"""Shared fixtures for repo-continuity-skills tests."""
+"""Shared fixtures for agent-checkpoint tests."""
 from __future__ import annotations
 
 import subprocess

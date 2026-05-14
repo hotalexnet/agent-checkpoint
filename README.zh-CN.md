@@ -1,4 +1,4 @@
-# repo-continuity-skills
+# agent-checkpoint
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Runtime: Python 3](https://img.shields.io/badge/runtime-python3-blue.svg)](https://www.python.org/)
@@ -45,8 +45,8 @@
 ## 1 分钟上手
 
 ```bash
-git clone https://github.com/hotalexnet/repo-continuity-skills.git
-cd repo-continuity-skills
+git clone https://github.com/hotalexnet/agent-checkpoint.git
+cd agent-checkpoint
 bash install-repo-skills.sh
 ```
 
@@ -154,8 +154,8 @@ bash install-repo-skills.sh --target /path/to/skills
 ### 方式 2：克隆仓库
 
 ```bash
-git clone https://github.com/hotalexnet/repo-continuity-skills.git
-cd repo-continuity-skills
+git clone https://github.com/hotalexnet/agent-checkpoint.git
+cd agent-checkpoint
 bash install-repo-skills.sh
 ```
 
@@ -278,7 +278,7 @@ Checkpoint 保存在 `.agents/checkpoints/` 下。你可以选择提交到 git�
 ## 项目结构
 
 ```text
-repo-continuity-skills/
+agent-checkpoint/
 ├── README.md
 ├── README.zh-CN.md
 ├── CHANGELOG.md

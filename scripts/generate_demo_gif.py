@@ -145,7 +145,7 @@ def render_frame(
 
     draw.text(
         (panel_left + 88, panel_top + 14),
-        "repo-continuity-skills demo",
+        "agent-checkpoint demo",
         font=font,
         fill=TEXT_COLOR,
     )
@@ -411,7 +411,7 @@ def save_gif(frames: list[Image.Image], durations: list[int], output_path: Path)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generate a terminal demo GIF for repo-continuity-skills.")
+    parser = argparse.ArgumentParser(description="Generate a terminal demo GIF for agent-checkpoint.")
     parser.add_argument(
         "--output",
         default=str(repo_root() / "assets" / "demo.gif"),

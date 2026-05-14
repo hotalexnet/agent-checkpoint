@@ -1,4 +1,4 @@
-# repo-continuity-skills
+# agent-checkpoint
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Runtime: Python 3](https://img.shields.io/badge/runtime-python3-blue.svg)](https://www.python.org/)
@@ -51,8 +51,8 @@ constraints mattered, and what the next concrete step should be.
 ## Quick Start
 
 ```bash
-git clone https://github.com/hotalexnet/repo-continuity-skills.git
-cd repo-continuity-skills
+git clone https://github.com/hotalexnet/agent-checkpoint.git
+cd agent-checkpoint
 bash install-repo-skills.sh
 ```
 
@@ -161,8 +161,8 @@ bash install-repo-skills.sh --target /path/to/skills
 ### Option 2: Clone the repo
 
 ```bash
-git clone https://github.com/hotalexnet/repo-continuity-skills.git
-cd repo-continuity-skills
+git clone https://github.com/hotalexnet/agent-checkpoint.git
+cd agent-checkpoint
 bash install-repo-skills.sh
 ```
 
@@ -288,7 +288,7 @@ Checkpoints are stored under `.agents/checkpoints/`. You can either commit them
 ## Project Structure
 
 ```text
-repo-continuity-skills/
+agent-checkpoint/
 ├── README.md
 ├── README.zh-CN.md
 ├── CHANGELOG.md
