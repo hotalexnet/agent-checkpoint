@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -27,7 +28,9 @@ def run_git(root: Path, *args: str) -> str:
         capture_output=True,
         text=True,
     )
-    return (result.stdout or result.stderr or "").strip()
+    if result.returncode != 0:
+        return f"[git error: {result.stderr.strip() or 'unknown'}]"
+    return (result.stdout or "").strip()
 
 
 def parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
@@ -59,7 +62,7 @@ def extract_section(text: str, heading: str) -> str:
     collected: list[str] = []
     for index in range(start, len(lines)):
         line = lines[index]
-        if line.startswith("## "):
+        if re.match(r"^## ", line) and not line.strip().startswith("###"):
             break
         collected.append(line)
     return "\n".join(collected).strip()
@@ -167,6 +170,9 @@ def cmd_list(root: Path) -> int:
 
 
 def cmd_prune(root: Path, keep: int) -> int:
+    if keep < 1:
+        print("Error: keep must be at least 1. Use git to remove all checkpoints if needed.")
+        return 1
     files = list_checkpoints(root)
     if len(files) <= keep:
         print(f"Only {len(files)} checkpoint(s) found, nothing to prune (keep={keep}).")

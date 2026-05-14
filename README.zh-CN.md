@@ -287,8 +287,6 @@ agent-checkpoint/
 ├── assets/
 │   └── demo.gif
 ├── install-repo-skills.sh
-├── dist/
-│   └── repo-skills-bundle.tar.gz
 ├── repo-checkpoint/
 │   ├── SKILL.md
 │   └── scripts/

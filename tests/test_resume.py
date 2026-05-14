@@ -94,3 +94,21 @@ def test_prune_removes_old(git_repo: Path):
 def test_prune_default_keep_5(git_repo: Path):
     result = run_resume(git_repo, "prune")
     assert result.returncode == 0
+
+
+def test_prune_zero_rejected(git_repo: Path):
+    create_checkpoint(git_repo, "safe")
+    result = run_resume(git_repo, "prune", "0")
+    assert result.returncode != 0
+    assert "at least 1" in result.stdout
+    assert len(list((git_repo / ".agents" / "checkpoints").glob("*.md"))) == 1
+
+
+def test_version_flag():
+    result = subprocess.run(
+        ["python3", str(RESUME_SCRIPT), "--version"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "0.2.0" in result.stdout

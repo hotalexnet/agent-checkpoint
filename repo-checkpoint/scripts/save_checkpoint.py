@@ -29,7 +29,9 @@ def run_git(root: Path, *args: str) -> str:
         capture_output=True,
         text=True,
     )
-    return (result.stdout or result.stderr or "").strip()
+    if result.returncode != 0:
+        return f"[git error: {result.stderr.strip() or 'unknown'}]"
+    return (result.stdout or "").strip()
 
 
 def slugify(value: str) -> str:
