@@ -84,7 +84,7 @@ def pick_font() -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
-def wrap_lines(draw: ImageDraw.ImageDraw, font: ImageFont.ImageFont, text: str) -> list[str]:
+def wrap_lines(draw: ImageDraw.ImageDraw, font: ImageFont.FreeTypeFont | ImageFont.ImageFont, text: str) -> list[str]:
     wrapped: list[str] = []
     for raw_line in text.splitlines():
         if not raw_line:
@@ -106,7 +106,7 @@ def wrap_lines(draw: ImageDraw.ImageDraw, font: ImageFont.ImageFont, text: str) 
 
 def render_frame(
     *,
-    font: ImageFont.ImageFont,
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
     scene_label: str,
     prompt: str,
     command_text: str,
@@ -174,7 +174,7 @@ def render_frame(
     return image
 
 
-def build_frames(font: ImageFont.ImageFont, scene: Scene) -> tuple[list[Image.Image], list[int]]:
+def build_frames(font: ImageFont.FreeTypeFont | ImageFont.ImageFont, scene: Scene) -> tuple[list[Image.Image], list[int]]:
     frames: list[Image.Image] = []
     durations: list[int] = []
     typed = scene.command
@@ -234,66 +234,8 @@ Do not leak onboarding guidance into ordinary study questions.
         target.write_text(content, encoding="utf-8")
 
 
-def populate_checkpoint(path: Path, *, repo_path: Path, env: dict[str, str]) -> None:
-    working_tree = run(["git", "status", "--short"], cwd=repo_path, env=env) or "[clean]"
-    recent_commits = run(["git", "log", "--oneline", "-5"], cwd=repo_path, env=env) or "[no commits]"
-    content = f"""---
-title: chat-routing-fix
-created_at: {DEMO_CREATED_AT}
-branch: main
-git_state: dirty
----
-
-# chat-routing-fix
-
-## Session Goal
-- Fix the chat fallback so non-matching questions stop returning stale onboarding guidance.
-
-## Current State
-- Router guard is patched locally.
-- One local smoke pass is done.
-- Staging verification still needs to run.
-
-## Key Chat Context
-- The user wants a root-cause cleanup, not a keyword patch.
-- Old onboarding copy must stop leaking into ordinary chat replies.
-- Do not broaden scope into model switching yet.
-
-## Files In Play
-- src/chat/router.py
-- src/prompts/chat_prompt.py
-- tests/test_chat_router.py
-
-## Verification
-- Ran a local smoke check against representative prompts.
-- Still need to verify the deployed path separately.
-
-## Next Step
-1. Reproduce against the current deploy chain.
-2. Verify fallback selection with 3 representative prompts.
-3. Commit only after the bad greeting path is gone.
-
-## Resume Recipe
-- Run `python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py`
-- Open the files listed above first.
-
-## Git Snapshot
-
-### Working Tree
-```text
-{working_tree}
-```
-
-### Recent Commits
-```text
-{recent_commits}
-```
-"""
-    path.write_text(content, encoding="utf-8")
-
-
 def build_demo_scenes(root: Path) -> list[Scene]:
-    with tempfile.TemporaryDirectory(prefix="repo-continuity-demo-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="agent-checkpoint-demo-") as temp_dir:
         temp_root = Path(temp_dir)
         fake_home = temp_root / "home"
         skills_root = fake_home / ".agents" / "skills"
@@ -327,6 +269,7 @@ def build_demo_scenes(root: Path) -> list[Scene]:
             encoding="utf-8",
         )
 
+        # Scene 1: create checkpoint (shows the real scaffold with TODOs)
         checkpoint_stdout = run(
             [
                 "python3",
@@ -337,17 +280,67 @@ def build_demo_scenes(root: Path) -> list[Scene]:
             cwd=repo_path,
             env=env,
         )
-        created_path = Path(checkpoint_stdout.splitlines()[0].strip())
-        stable_path = repo_path / ".agents" / "checkpoints" / DEMO_FILENAME
-        created_path.rename(stable_path)
-        populate_checkpoint(stable_path, repo_path=repo_path, env=env)
+        # Get the actual generated filename
+        actual_name = Path(checkpoint_stdout.splitlines()[0].strip()).name
+        # Rename to a stable name for display
+        stable_name = DEMO_FILENAME
+        actual_path = repo_path / ".agents" / "checkpoints" / actual_name
+        stable_path = repo_path / ".agents" / "checkpoints" / stable_name
+        if actual_name != stable_name:
+            actual_path.rename(stable_path)
 
-        list_output = run(["ls", ".agents/checkpoints"], cwd=repo_path, env=env)
-        preview_output = run(
-            ["sed", "-n", "1,28p", f".agents/checkpoints/{DEMO_FILENAME}"],
+        # Scene 2: cat the scaffold — shows real TODOs
+        cat_output = run(
+            ["cat", f".agents/checkpoints/{stable_name}"],
             cwd=repo_path,
             env=env,
         )
+
+        # Create a second older checkpoint for list/prune demo
+        import datetime as dt
+        old_stamp = "20260512-091500-old-experiment"
+        old_checkpoint = repo_path / ".agents" / "checkpoints" / f"{old_stamp}.md"
+        old_checkpoint.parent.mkdir(parents=True, exist_ok=True)
+        old_checkpoint.write_text(
+            f"""---
+title: old-experiment
+created_at: 2026-05-12 09:15:00 +0800
+branch: main
+git_state: clean
+---
+
+# old-experiment
+
+## Session Goal
+- Trying a different routing approach.
+""",
+            encoding="utf-8",
+        )
+
+        # Scene 3: list all checkpoints
+        list_output = run(
+            [
+                "python3",
+                str(skills_root / "repo-resume/scripts/resume_snapshot.py"),
+                "list",
+            ],
+            cwd=repo_path,
+            env=env,
+        )
+
+        # Scene 4: prune old ones, keep 1
+        prune_output = run(
+            [
+                "python3",
+                str(skills_root / "repo-resume/scripts/resume_snapshot.py"),
+                "prune",
+                "1",
+            ],
+            cwd=repo_path,
+            env=env,
+        )
+
+        # Scene 5: resume from latest checkpoint
         resume_output = run(
             [
                 "python3",
@@ -358,12 +351,19 @@ def build_demo_scenes(root: Path) -> list[Scene]:
         )
 
         checkpoint_stdout = normalize_text(checkpoint_stdout, repo_path=repo_path, fake_home=fake_home)
-        preview_output = normalize_text(preview_output, repo_path=repo_path, fake_home=fake_home)
+        cat_output = normalize_text(cat_output, repo_path=repo_path, fake_home=fake_home)
+        list_output = normalize_text(list_output, repo_path=repo_path, fake_home=fake_home)
+        prune_output = normalize_text(prune_output, repo_path=repo_path, fake_home=fake_home)
         resume_output = normalize_text(resume_output, repo_path=repo_path, fake_home=fake_home)
+
+        # Truncate cat output to first 22 lines for readability
+        cat_lines = cat_output.splitlines()
+        if len(cat_lines) > 22:
+            cat_output = "\n".join(cat_lines[:22]) + "\n... (truncated)"
 
         return [
             Scene(
-                label="1/4 checkpoint",
+                label="1/5 checkpoint",
                 prompt="alex@demo ~/work/demo-app",
                 command='python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "chat-routing-fix"',
                 output=checkpoint_stdout,
@@ -371,23 +371,31 @@ def build_demo_scenes(root: Path) -> list[Scene]:
                 chunk_size=7,
             ),
             Scene(
-                label="2/4 artifact",
+                label="2/5 scaffold",
                 prompt="alex@demo ~/work/demo-app",
-                command="ls .agents/checkpoints",
-                output=list_output,
-                hold_ms=1200,
-                chunk_size=8,
-            ),
-            Scene(
-                label="3/4 content",
-                prompt="alex@demo ~/work/demo-app",
-                command=f"sed -n '1,28p' .agents/checkpoints/{DEMO_FILENAME}",
-                output=preview_output,
-                hold_ms=2300,
+                command=f"cat .agents/checkpoints/{stable_name}",
+                output=cat_output,
+                hold_ms=2500,
                 chunk_size=10,
             ),
             Scene(
-                label="4/4 resume",
+                label="3/5 list",
+                prompt="alex@demo ~/work/demo-app",
+                command="python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py list",
+                output=list_output,
+                hold_ms=2000,
+                chunk_size=8,
+            ),
+            Scene(
+                label="4/5 prune",
+                prompt="alex@demo ~/work/demo-app",
+                command="python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py prune 1",
+                output=prune_output,
+                hold_ms=1800,
+                chunk_size=8,
+            ),
+            Scene(
+                label="5/5 resume",
                 prompt="alex@demo ~/work/demo-app",
                 command="python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py",
                 output=resume_output,
@@ -432,7 +440,10 @@ def main() -> int:
 
     output_path = Path(args.output).resolve()
     save_gif(all_frames, all_durations, output_path)
-    print(output_path)
+
+    total_ms = sum(all_durations)
+    print(f"{output_path}")
+    print(f"Frames: {len(all_frames)}, Duration: {total_ms / 1000:.1f}s, Size: {output_path.stat().st_size / 1024:.0f}KB")
     return 0
 
 
