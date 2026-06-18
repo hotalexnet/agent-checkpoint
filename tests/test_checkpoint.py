@@ -18,6 +18,19 @@ def run_checkpoint(repo: Path, title: str = "test") -> subprocess.CompletedProce
     )
 
 
+def run_checkpoint_as_agent(
+    repo: Path,
+    title: str = "test",
+    agent: str = "codex",
+) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["python3", str(SCRIPT), "--title", title, "--agent", agent],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+
+
 def test_creates_checkpoint_file(git_repo: Path):
     result = run_checkpoint(git_repo)
     assert result.returncode == 0
@@ -28,9 +41,23 @@ def test_creates_checkpoint_file(git_repo: Path):
     content = files[0].read_text()
     assert "title: test" in content
     assert "## Session Goal" in content
+    assert "## Agent Handoff" in content
     assert "## Key Chat Context" in content
     assert "## Files In Play" in content
     assert "## Next Step" in content
+
+
+def test_checkpoint_records_cross_agent_metadata(git_repo: Path):
+    result = run_checkpoint_as_agent(git_repo, agent="claude-code")
+    assert result.returncode == 0
+
+    content = list((git_repo / ".agents" / "checkpoints").glob("*.md"))[0].read_text()
+    assert "checkpoint_schema: agent-handoff/v1" in content
+    assert "checkpoint_dir: .agents/checkpoints" in content
+    assert "created_by: claude-code" in content
+    assert "compatible_agents: codex, claude-code, opencode, generic" in content
+    assert "Created by: claude-code" in content
+    assert "Codex/OpenAI CLI, Claude Code, opencode" in content
 
 
 def test_slugifies_title(git_repo: Path):
@@ -73,3 +100,13 @@ def test_multiple_checkpoints_ordered(git_repo: Path):
     assert len(files) == 2
     assert "second" in files[0].read_text()
     assert "first" in files[1].read_text()
+
+
+def test_version_flag():
+    result = subprocess.run(
+        ["python3", str(SCRIPT), "--version"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "0.3.0" in result.stdout

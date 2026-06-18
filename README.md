@@ -5,7 +5,9 @@
 [![State: Repo Local](https://img.shields.io/badge/state-repo--local-2ea44f.svg)](#how-it-works)
 **English** | [**中文**](./README.zh-CN.md)
 
-Repo-local continuity skills for coding agents.
+Repo-local continuity skills for coding agents. Checkpoints use a shared
+`agent-handoff/v1` markdown format so Codex/OpenAI CLI, Claude Code, opencode,
+and other programming agents can write and resume the same repo state.
 
 These two skills turn "I lost the thread" into a recoverable workflow: save the
 real working lane into the repository itself, then restore it in the next
@@ -32,6 +34,8 @@ constraints mattered, and what the next concrete step should be.
 - **Repo-local, not session-local** — the handoff lives inside the repo, so it
   survives model switches, browser restarts, shell reconnects, and machine
   changes.
+- **Cross-agent by design** — Codex can write a checkpoint and Claude Code or
+  opencode can resume it later from the same `.agents/checkpoints/` directory.
 - **Plain markdown, no lock-in** — checkpoints are readable in any editor and
   reviewable in git.
 - **Fast cold start** — resume goes straight to the last known lane instead of
@@ -56,12 +60,19 @@ cd agent-checkpoint
 bash install-repo-skills.sh
 ```
 
+Upgrade an existing install from GitHub:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/hotalexnet/agent-checkpoint/main/upgrade-repo-skills.sh)
+```
+
 From the target repo root:
 
 ```bash
 # End of session: create a scaffold, then fill in the TODOs
 python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py \
-  --title "chat-routing-root-cause"
+  --title "chat-routing-root-cause" \
+  --agent codex
 
 # Next session: recover the latest lane
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
@@ -92,6 +103,7 @@ continue from the real next step instead of re-deriving intent
 
 Each checkpoint keeps these top-level sections:
 
+- `Agent Handoff`
 - `Session Goal`
 - `Current State`
 - `Key Chat Context`
@@ -187,9 +199,37 @@ Manual commands from the target repo root:
 
 ```bash
 python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "my-work"
+python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "my-work" --agent claude-code
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py list
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py prune 5
+```
+
+## Upgrade
+
+From an existing clone:
+
+```bash
+cd agent-checkpoint
+bash upgrade-repo-skills.sh
+```
+
+From any machine with Git, Bash, and Python:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/hotalexnet/agent-checkpoint/main/upgrade-repo-skills.sh)
+```
+
+Custom skill install directory:
+
+```bash
+bash upgrade-repo-skills.sh --target /path/to/skills
+```
+
+Use the current checkout without pulling, useful for testing local changes:
+
+```bash
+bash upgrade-repo-skills.sh --no-pull --target /path/to/skills
 ```
 
 ## Recommended Workflow

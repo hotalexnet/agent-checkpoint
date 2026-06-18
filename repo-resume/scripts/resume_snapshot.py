@@ -85,7 +85,11 @@ def load_checkpoint(path: Path, root: Path) -> dict[str, str]:
         "path": str(path.relative_to(root)),
         "title": metadata.get("title") or path.stem,
         "created_at": metadata.get("created_at") or "[unknown]",
+        "checkpoint_schema": metadata.get("checkpoint_schema") or "[legacy]",
+        "created_by": metadata.get("created_by") or "[unknown]",
+        "compatible_agents": metadata.get("compatible_agents") or "[unknown]",
         "branch": metadata.get("branch") or "[unknown]",
+        "agent_handoff": extract_section(body, "Agent Handoff"),
         "session_goal": extract_section(body, "Session Goal"),
         "current_state": extract_section(body, "Current State"),
         "key_chat_context": extract_section(body, "Key Chat Context"),
@@ -119,9 +123,13 @@ def cmd_resume(root: Path) -> int:
         print(f"- File: `{checkpoint['path']}`")
         print(f"- Title: `{checkpoint['title']}`")
         print(f"- Saved: `{checkpoint['created_at']}`")
+        print(f"- Schema: `{checkpoint['checkpoint_schema']}`")
+        print(f"- Created by: `{checkpoint['created_by']}`")
+        print(f"- Compatible agents: `{checkpoint['compatible_agents']}`")
         print(f"- Branch: `{checkpoint['branch']}`")
         print()
         for label, key in [
+            ("Agent Handoff", "agent_handoff"),
             ("Session Goal", "session_goal"),
             ("Current State", "current_state"),
             ("Key Chat Context", "key_chat_context"),
@@ -189,7 +197,7 @@ def cmd_prune(root: Path, keep: int) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Repo-local resume and checkpoint management.")
-    parser.add_argument("--version", action="version", version="repo-resume 0.2.0")
+    parser.add_argument("--version", action="version", version="repo-resume 0.3.0")
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("list", help="List all checkpoints with metadata.")

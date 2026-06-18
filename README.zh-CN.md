@@ -5,7 +5,9 @@
 [![State: Repo Local](https://img.shields.io/badge/state-repo--local-2ea44f.svg)](#工作原理)
 [**English**](./README.md) | **中文**
 
-面向编码 agent 的仓库内连续性技能。
+面向编码 agent 的仓库内连续性技能。checkpoint 使用共享的
+`agent-handoff/v1` Markdown 格式，Codex/OpenAI CLI、Claude Code、opencode
+和其他编程智能体可以读写同一个 repo 里的恢复点。
 
 这两个 skill 专门解决一个高频问题：会话断了、模型切了、机器换了，但你又
 不想重新花半小时把上下文捋一遍。它们会把真实工作主线直接落进仓库里，并在
@@ -30,6 +32,8 @@
 
 - **进度保存在仓库里，不保存在会话里** —— 浏览器重开、模型切换、shell 断开、
   换电脑，这些都不会让交接信息消失。
+- **跨 agent 可用** —— Codex 写下的 checkpoint，Claude Code 或 opencode
+  下次可以从同一个 `.agents/checkpoints/` 目录恢复。
 - **纯 Markdown，无锁定** —— 普通编辑器能看，git 能跟踪，团队也能直接读。
 - **恢复路径很短** —— 不用大范围重新扫仓库，先回到最近一次明确主线。
 - **保存的不只是代码状态** —— 目标、约束、排除路线、验证状态和下一步都会写明。
@@ -50,12 +54,19 @@ cd agent-checkpoint
 bash install-repo-skills.sh
 ```
 
+已有安装可直接从 GitHub 升级：
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/hotalexnet/agent-checkpoint/main/upgrade-repo-skills.sh)
+```
+
 然后去目标仓库根目录执行：
 
 ```bash
 # 结束前：先生成骨架，再把 TODO 填完整
 python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py \
-  --title "chat-routing-root-cause"
+  --title "chat-routing-root-cause" \
+  --agent codex
 
 # 下次重开：直接恢复最近主线
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
@@ -86,6 +97,7 @@ repo-resume
 
 每个 checkpoint 固定包含这些一级章节：
 
+- `Agent Handoff`
 - `Session Goal`
 - `Current State`
 - `Key Chat Context`

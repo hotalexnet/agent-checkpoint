@@ -19,6 +19,15 @@ def create_checkpoint(repo: Path, title: str = "test") -> None:
     )
 
 
+def create_checkpoint_as_agent(repo: Path, title: str = "test", agent: str = "codex") -> None:
+    subprocess.run(
+        ["python3", str(CHECKPOINT_SCRIPT), "--title", title, "--agent", agent],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+
+
 def run_resume(repo: Path, *extra_args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["python3", str(RESUME_SCRIPT), *extra_args],
@@ -35,10 +44,14 @@ def test_resume_no_checkpoint(git_repo: Path):
 
 
 def test_resume_with_checkpoint(git_repo: Path):
-    create_checkpoint(git_repo, "my-session")
+    create_checkpoint_as_agent(git_repo, "my-session", "opencode")
     result = run_resume(git_repo)
     assert result.returncode == 0
     assert "my-session" in result.stdout
+    assert "Schema: `agent-handoff/v1`" in result.stdout
+    assert "Created by: `opencode`" in result.stdout
+    assert "Compatible agents: `codex, claude-code, opencode, generic`" in result.stdout
+    assert "Agent Handoff" in result.stdout
     assert "Session Goal" in result.stdout
     assert "Working Tree" in result.stdout
     assert "Recent Commits" in result.stdout
@@ -111,4 +124,17 @@ def test_version_flag():
         text=True,
     )
     assert result.returncode == 0
-    assert "0.2.0" in result.stdout
+    assert "0.3.0" in result.stdout
+
+
+def test_upgrade_script_help():
+    script = Path(__file__).resolve().parent.parent / "upgrade-repo-skills.sh"
+    result = subprocess.run(
+        ["bash", str(script), "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "Usage: bash upgrade-repo-skills.sh" in result.stdout
+    assert "--target DIR" in result.stdout
+    assert "--no-pull" in result.stdout

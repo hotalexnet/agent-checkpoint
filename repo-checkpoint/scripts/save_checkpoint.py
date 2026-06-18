@@ -38,16 +38,54 @@ def slugify(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", value.strip().lower()).strip("-") or "checkpoint"
 
 
-def build_content(*, title: str, created_at: str, branch: str, working_tree: str, recent_commits: str) -> str:
+def detect_agent(explicit: str | None) -> str:
+    if explicit:
+        return explicit
+    import os
+
+    for key in ("AGENT_NAME", "AI_AGENT", "CODING_AGENT"):
+        value = os.environ.get(key)
+        if value:
+            return value
+    if os.environ.get("CODEX_HOME"):
+        return "codex"
+    if os.environ.get("CLAUDECODE") or os.environ.get("CLAUDE_CODE"):
+        return "claude-code"
+    if os.environ.get("OPENCODE") or os.environ.get("OPENCODE_HOME"):
+        return "opencode"
+    return "unknown-agent"
+
+
+def build_content(
+    *,
+    title: str,
+    created_at: str,
+    branch: str,
+    working_tree: str,
+    recent_commits: str,
+    agent: str,
+) -> str:
     git_state = "clean" if working_tree == "[clean]" else "dirty"
     return f"""---
 title: {title}
 created_at: {created_at}
+checkpoint_schema: agent-handoff/v1
+checkpoint_scope: repo
+checkpoint_dir: .agents/checkpoints
+created_by: {agent}
+compatible_agents: codex, claude-code, opencode, generic
 branch: {branch}
 git_state: {git_state}
 ---
 
 # {title}
+
+## Agent Handoff
+- Created by: {agent}
+- Checkpoint protocol: `agent-handoff/v1`
+- Shared checkpoint directory: `.agents/checkpoints/`
+- Compatible agents: Codex/OpenAI CLI, Claude Code, opencode, and generic programming agents.
+- Resume rule: trust this file over hidden chat memory; verify git state before editing.
 
 ## Session Goal
 - TODO: What to accomplish this session and the definition of done.
@@ -77,6 +115,7 @@ git_state: {git_state}
 
 ## Resume Recipe
 - Run `python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py`
+- If using Claude Code or opencode, run the same command from this repository root.
 - Read the files listed above.
 
 ## Git Snapshot
@@ -95,8 +134,9 @@ git_state: {git_state}
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Create a repo-local checkpoint scaffold.")
-    parser.add_argument("--version", action="version", version="repo-checkpoint 0.2.0")
+    parser.add_argument("--version", action="version", version="repo-checkpoint 0.3.0")
     parser.add_argument("--title", default="progress-checkpoint", help="Short title for the checkpoint filename and header.")
+    parser.add_argument("--agent", default=None, help="Agent name for cross-agent handoff metadata, e.g. codex, claude-code, opencode.")
     args = parser.parse_args()
 
     root = repo_root()
@@ -117,6 +157,7 @@ def main() -> int:
             branch=branch,
             working_tree=working_tree,
             recent_commits=recent_commits,
+            agent=detect_agent(args.agent),
         ),
         encoding="utf-8",
     )
