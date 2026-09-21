@@ -102,6 +102,16 @@ def test_multiple_checkpoints_ordered(git_repo: Path):
     assert "first" in files[1].read_text()
 
 
+def test_same_title_same_second_does_not_overwrite(git_repo: Path):
+    first = run_checkpoint(git_repo, "same-title")
+    second = run_checkpoint(git_repo, "same-title")
+    assert first.returncode == 0
+    assert second.returncode == 0
+
+    files = list((git_repo / ".agents" / "checkpoints").glob("*.md"))
+    assert len(files) == 2
+
+
 def test_version_flag():
     result = subprocess.run(
         ["python3", str(SCRIPT), "--version"],
@@ -109,4 +119,19 @@ def test_version_flag():
         text=True,
     )
     assert result.returncode == 0
-    assert "0.3.0" in result.stdout
+    assert "0.3.1" in result.stdout
+
+
+def test_install_preserves_previous_skill_files(tmp_path: Path):
+    script = Path(__file__).resolve().parent.parent / "install-repo-skills.sh"
+    target = tmp_path / "skills"
+    first = subprocess.run(["bash", str(script), "--target", str(target)], capture_output=True, text=True)
+    assert first.returncode == 0, first.stderr
+
+    marker = target / "repo-checkpoint" / "local-change.txt"
+    marker.write_text("keep me")
+    second = subprocess.run(["bash", str(script), "--target", str(target)], capture_output=True, text=True)
+    assert second.returncode == 0, second.stderr
+    backups = list((target / ".agent-checkpoint-backups").glob("*/repo-checkpoint/local-change.txt"))
+    assert len(backups) == 1
+    assert backups[0].read_text() == "keep me"

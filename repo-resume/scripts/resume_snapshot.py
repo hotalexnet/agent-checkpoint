@@ -197,7 +197,7 @@ def cmd_prune(root: Path, keep: int) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Repo-local resume and checkpoint management.")
-    parser.add_argument("--version", action="version", version="repo-resume 0.3.0")
+    parser.add_argument("--version", action="version", version="repo-resume 0.3.1")
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("list", help="List all checkpoints with metadata.")

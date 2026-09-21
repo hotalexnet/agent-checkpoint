@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import os
 import re
 import subprocess
 import sys
@@ -54,6 +55,21 @@ def detect_agent(explicit: str | None) -> str:
     if os.environ.get("OPENCODE") or os.environ.get("OPENCODE_HOME"):
         return "opencode"
     return "unknown-agent"
+
+
+def reserve_checkpoint_path(checkpoint_dir: Path, stamp: str, title: str) -> Path:
+    """Reserve a unique checkpoint path without overwriting another snapshot."""
+    slug = slugify(title)
+    for counter in range(1000):
+        suffix = "" if counter == 0 else f"-{counter}"
+        path = checkpoint_dir / f"{stamp}-{slug}{suffix}.md"
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        except FileExistsError:
+            continue
+        os.close(fd)
+        return path
+    raise RuntimeError("Could not allocate a unique checkpoint filename")
 
 
 def build_content(
@@ -134,7 +150,7 @@ git_state: {git_state}
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Create a repo-local checkpoint scaffold.")
-    parser.add_argument("--version", action="version", version="repo-checkpoint 0.3.0")
+    parser.add_argument("--version", action="version", version="repo-checkpoint 0.3.1")
     parser.add_argument("--title", default="progress-checkpoint", help="Short title for the checkpoint filename and header.")
     parser.add_argument("--agent", default=None, help="Agent name for cross-agent handoff metadata, e.g. codex, claude-code, opencode.")
     args = parser.parse_args()
@@ -149,7 +165,7 @@ def main() -> int:
 
     now = dt.datetime.now().astimezone()
     stamp = now.strftime("%Y%m%d-%H%M%S")
-    path = checkpoint_dir / f"{stamp}-{slugify(args.title)}.md"
+    path = reserve_checkpoint_path(checkpoint_dir, stamp, args.title)
     path.write_text(
         build_content(
             title=args.title,
