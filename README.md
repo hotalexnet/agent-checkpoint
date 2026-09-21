@@ -1,58 +1,28 @@
 # agent-checkpoint
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Runtime: Python 3](https://img.shields.io/badge/runtime-python3-blue.svg)](https://www.python.org/)
-[![State: Repo Local](https://img.shields.io/badge/state-repo--local-2ea44f.svg)](#how-it-works)
-**English** | [**中文**](./README.zh-CN.md)
+[![Version: 0.4.0](https://img.shields.io/badge/version-0.4.0-2ea44f.svg)](VERSION)
 
-Repo-local continuity skills for coding agents. Checkpoints use a shared
-`agent-handoff/v1` markdown format so Codex/OpenAI CLI, Claude Code, opencode,
-and other programming agents can write and resume the same repo state.
+**English** | [中文](./README.zh-CN.md)
 
-These two skills turn "I lost the thread" into a recoverable workflow: save the
-real working lane into the repository itself, then restore it in the next
-session without depending on fragile external chat memory.
+Repo-local continuity skills for coding agents. Save the goal, decisions, files,
+verification, and next steps in `.agents/checkpoints/`, then resume the same
+working lane after an interruption, model switch, or machine change.
+
+The checkpoint format is shared across Codex/OpenAI CLI, Claude Code, opencode,
+and other agents that can read Markdown.
 
 ## Demo
 
 ![Terminal demo of repo-checkpoint and repo-resume](./assets/demo.gif)
 
-## What It Does
+The workflow is simple: save a handoff at the end of a session, then read it
+before exploring the repository in the next session.
 
-- **repo-checkpoint** — writes a timestamped markdown handoff under
-  `.agents/checkpoints/`, including session goal, current state, key chat
-  context, files in play, verification state, next step, and a git snapshot.
-- **repo-resume** — restores the latest active lane from the newest checkpoint
-  plus current branch, working tree, and recent commits.
+## Quick start
 
-**Why this exists:** Most agents can reread code. What they usually lose is the
-human context: what the user actually wanted, what was already tried, which
-constraints mattered, and what the next concrete step should be.
-
-## Why It Matters
-
-- **Repo-local, not session-local** — the handoff lives inside the repo, so it
-  survives model switches, browser restarts, shell reconnects, and machine
-  changes.
-- **Cross-agent by design** — Codex can write a checkpoint and Claude Code or
-  opencode can resume it later from the same `.agents/checkpoints/` directory.
-- **Plain markdown, no lock-in** — checkpoints are readable in any editor and
-  reviewable in git.
-- **Fast cold start** — resume goes straight to the last known lane instead of
-  broad repo exploration.
-- **Human context included** — goal, constraints, rejected paths, and next
-  actions are captured explicitly.
-- **Works even without an agent runtime** — both scripts can be run manually.
-
-## Best For
-
-- long-running debugging or refactor sessions
-- interruptions during implementation or review
-- switching between local machine, remote box, and another agent session
-- repos where "what were we actually doing?" is more expensive than reading the
-  code
-
-## Quick Start
+Requirements: Python 3, Git, and Bash.
 
 ```bash
 git clone https://github.com/hotalexnet/agent-checkpoint.git
@@ -60,295 +30,176 @@ cd agent-checkpoint
 bash install-repo-skills.sh
 ```
 
-Upgrade an existing install from GitHub:
+From the root of any Git repository:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/hotalexnet/agent-checkpoint/main/upgrade-repo-skills.sh)
-```
-
-From the target repo root:
-
-```bash
-# End of session: create a scaffold, then fill in the TODOs
+# End a session: create a handoff scaffold and fill in its TODOs.
 python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py \
-  --title "chat-routing-root-cause" \
-  --agent codex
+  --title "chat-routing-root-cause" --agent codex
 
-# Next session: recover the latest lane
+# Start the next session: restore the active lane.
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
 ```
 
-## Example Flow
+## What gets installed
+
+The installer places two self-contained skills under `~/.agents/skills/`:
+
+- `repo-checkpoint` — creates a Markdown handoff in
+  `.agents/checkpoints/`.
+- `repo-resume` — reads the current handoff, Git status, branch, and recent
+  commits.
+
+Both scripts can also be run directly, without an agent runtime.
+
+## Commands
+
+Run these commands from the target repository root.
+
+The table omits the `python3 ~/.agents/skills/.../scripts/` prefix for
+readability; use the full paths shown in the example below when copying a
+command into a shell.
+
+| Need | Command |
+| --- | --- |
+| Create a timestamped checkpoint | `save_checkpoint.py --title "work"` |
+| Update one active handoff | `save_checkpoint.py --current --title "active-lane"` |
+| Keep a checkpoint indefinitely | `save_checkpoint.py --expires-in 0` |
+| Resume the active lane | `resume_snapshot.py` |
+| List checkpoints and status | `resume_snapshot.py list` |
+| Validate structure and metadata | `resume_snapshot.py validate` |
+| Reject unfinished `TODO`s too | `resume_snapshot.py validate --strict` |
+| Keep the five newest snapshots | `resume_snapshot.py prune 5` |
+
+For example:
+
+```bash
+CHECKPOINT=~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py
+RESUME=~/.agents/skills/repo-resume/scripts/resume_snapshot.py
+
+python3 "$CHECKPOINT" --current --title "fix-login-flow" --agent codex
+python3 "$RESUME" validate
+python3 "$RESUME" list
+```
+
+The generated file is a scaffold. Replace every `TODO` with concrete session
+information before handing the repository to another agent.
+
+## Features in 0.4.0
+
+- **Active lane:** `--current` atomically updates
+  `.agents/checkpoints/current.md`; it takes precedence over timestamped
+  snapshots when resuming.
+- **Expiry tracking:** new checkpoints expire after 30 days by default.
+  Use `--expires-in 0` to disable expiry.
+- **Git association:** checkpoints record the branch and base commit. Resume
+  reports branch mismatches and missing commits.
+- **Secret redaction:** common passwords, tokens, API keys, bearer credentials,
+  private keys, and credential-bearing URLs are redacted from generated fields
+  before writing. Content you add manually should still be reviewed.
+- **Validation:** `validate` checks frontmatter, required sections, expiry,
+  credentials, and the recorded commit. `--strict` also rejects `TODO`s.
+- **Safe writes:** checkpoint files are written to a temporary file and then
+  replaced atomically.
+
+Older timestamped checkpoints without the new metadata remain readable and are
+reported as `legacy`.
+
+## How a checkpoint works
+
+Each checkpoint contains these sections:
 
 ```text
-Session A:
-- investigating a routing bug
-- several files open
-- one failed approach already ruled out
-        ↓
-repo-checkpoint
-        ↓
-.agents/checkpoints/20260513-114233-chat-routing-root-cause.md
-        ↓
-Session B starts later on the same or another machine
-        ↓
-repo-resume
-        ↓
-latest checkpoint + branch + working tree + recent commits
-        ↓
-continue from the real next step instead of re-deriving intent
+Agent Handoff       who can resume it and how
+Session Goal        what must be completed
+Current State       what is already true
+Key Chat Context    user intent and constraints
+Files In Play       files and data paths that matter
+Verification        tests and checks already run
+Next Step           the next executable actions
+Resume Recipe       the standard recovery command
+Git Snapshot        working tree and recent commits
 ```
 
-## What Gets Saved
+The files are ordinary Markdown. You can review, edit, commit, ignore, copy,
+or archive them with normal Git workflows.
 
-Each checkpoint keeps these top-level sections:
+## Install and upgrade
 
-- `Agent Handoff`
-- `Session Goal`
-- `Current State`
-- `Key Chat Context`
-- `Files In Play`
-- `Verification`
-- `Next Step`
-- `Resume Recipe`
-- `Git Snapshot`
-
-That is the real value here: not just code state, but the reasoning state around
-the code.
-
-## Example Checkpoint Content
-
-```md
-## Session Goal
-- Fix the chat fallback so non-matching questions stop returning stale onboarding guidance.
-
-## Current State
-- Router fix is implemented locally.
-- Local smoke test passed.
-- Staging behavior still needs separate verification.
-
-## Key Chat Context
-- User wants root-cause-level cleanup, not a keyword patch.
-- Old onboarding copy must stop leaking into normal chat replies.
-- Do not broaden scope into model switching yet.
-
-## Files In Play
-- src/chat/router.py
-- src/prompts/chat_prompt.py
-- tests/test_chat_router.py
-
-## Next Step
-1. Reproduce against the current deploy path.
-2. Verify fallback selection with 3 representative prompts.
-3. Commit only after the bad greeting path is gone.
-```
-
-## Install
-
-### Prerequisites
-
-- `python3`
-- `git`
-- a skill runtime that loads skills from `~/.agents/skills`, or a vendored
-  skill path inside your own tooling
-
-### Option 1: Run the installer
-
-```bash
-bash install-repo-skills.sh
-```
-
-Default install target:
-
-```bash
-~/.agents/skills
-```
-
-Custom install target:
+Install to a different skill directory:
 
 ```bash
 bash install-repo-skills.sh --target /path/to/skills
 ```
 
-### Option 2: Clone the repo
+Upgrade an existing installation from a cloned checkout:
 
 ```bash
-git clone https://github.com/hotalexnet/agent-checkpoint.git
-cd agent-checkpoint
-bash install-repo-skills.sh
-```
-
-### Option 3: Copy the skill folders directly
-
-```bash
-mkdir -p ~/.agents/skills
-cp -R repo-checkpoint ~/.agents/skills/
-cp -R repo-resume ~/.agents/skills/
-```
-
-## Usage
-
-| Trigger or need | Action |
-|-----------------|--------|
-| "save progress" / "checkpoint this" | run `repo-checkpoint` |
-| "continue where we left off" / "what was I doing?" | run `repo-resume` |
-| "show all checkpoints" | run `repo-resume list` |
-| "check checkpoint health" | run `repo-resume validate` |
-| "clean up old checkpoints" | run `repo-resume prune 5` |
-
-Manual commands from the target repo root:
-
-```bash
-python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "my-work"
-python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "my-work" --agent claude-code
-python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --current --title "active-lane"
-python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "long-lived-work" --expires-in 0
-python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
-python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py list
-python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py validate
-python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py validate --strict
-python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py prune 5
-```
-
-`--current` atomically updates `.agents/checkpoints/current.md`, which is preferred
-by `repo-resume` as the active lane. Timestamped snapshots remain available for
-history. New checkpoints expire after 30 days by default; use `--expires-in 0` to
-disable expiry. Common credentials are redacted before a checkpoint is written.
-`validate` checks structure, credentials, expiry metadata, and the recorded Git
-commit. `--strict` additionally rejects unfinished `TODO` placeholders.
-
-## Upgrade
-
-From an existing clone:
-
-```bash
-cd agent-checkpoint
 bash upgrade-repo-skills.sh
 ```
 
-From any machine with Git, Bash, and Python:
+Upgrade directly from GitHub:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/hotalexnet/agent-checkpoint/main/upgrade-repo-skills.sh)
+bash <(curl -fsSL \
+  https://raw.githubusercontent.com/hotalexnet/agent-checkpoint/main/upgrade-repo-skills.sh)
 ```
 
-Custom skill install directory:
+Use `--no-pull` when testing the current checkout, or `--target DIR` to choose
+another installation directory. The installer backs up an existing skill
+directory before replacing it.
 
-```bash
-bash upgrade-repo-skills.sh --target /path/to/skills
-```
+## Cross-agent and multi-machine use
 
-Use the current checkout without pulling, useful for testing local changes:
+The handoff is intentionally tool-independent. A typical workflow is:
 
-```bash
-bash upgrade-repo-skills.sh --no-pull --target /path/to/skills
-```
+1. Agent A runs `save_checkpoint.py` and fills in the handoff.
+2. The checkpoint is committed, copied, or left locally according to your
+   privacy needs.
+3. Agent B runs `resume_snapshot.py` from the same repository.
 
-## Recommended Workflow
+On another machine, clone this repository and run the installer, or copy the
+`repo-checkpoint/` and `repo-resume/` directories into that machine's skill
+directory.
 
-### 1. Before closing a session
+## Privacy and Git policy
 
-Run `repo-checkpoint`, then replace every `TODO` with concrete session state.
+Checkpoint files may contain project names, paths, task details, and Git output.
+Common credential patterns are redacted, but no pattern-based scanner can find
+every possible secret. Review a checkpoint before committing it.
 
-### 2. When reopening later
-
-Run `repo-resume` first, before broad repo exploration.
-
-### 3. Keep the checkpoint executable
-
-A good checkpoint should answer these questions fast:
-
-- What are we trying to finish?
-- What is already true?
-- What must not be broken?
-- Which files matter first?
-- What should happen next?
-
-## Why Repo-Local Beats External Chat Memory
-
-- external session memory is often unavailable, partial, or tool-specific
-- a repo-local handoff travels with the codebase
-- teammates and future-you can inspect it without special software
-- the checkpoint can be committed, ignored, copied, or archived with normal git
-  habits
-
-## How It Works
-
-```text
-Current coding session
-    ↓
-repo-checkpoint
-    ↓
-Timestamped markdown handoff under .agents/checkpoints/
-    ↓
-New session starts later
-    ↓
-repo-resume
-    ↓
-Latest checkpoint + current git state
-    ↓
-Continue the exact lane with minimal cold-start cost
-```
-
-## Compatibility
-
-- Any git repository
-- Local machine or remote server
-- Cross-machine reuse by cloning or copying the skill folders
-- Manual CLI use, even if your agent runtime does not auto-load skills
-
-## Multi-Machine Usage
-
-You can either:
-
-- clone this repository on another machine and run the installer, or
-- copy `repo-checkpoint/` and `repo-resume/` directly into that machine's
-  `~/.agents/skills/`
-
-## Updating
-
-If you already installed an older version, rerun:
-
-```bash
-bash install-repo-skills.sh
-```
-
-The installer replaces:
-
-- `~/.agents/skills/repo-checkpoint`
-- `~/.agents/skills/repo-resume`
-
-## Limits
-
-- Resume quality depends on checkpoint quality.
-- The scaffold is intentionally simple; it does not auto-summarize your whole
-  session for you.
-- If you leave the `TODO`s blank, future-you still has to reconstruct intent.
-
-## .gitignore
-
-Checkpoints are stored under `.agents/checkpoints/`. You can either commit them
-(so teammates can resume each other's work) or gitignore them (private notes):
+To keep personal handoffs out of Git:
 
 ```gitignore
-# Option A: ignore all checkpoints
 .agents/checkpoints/
-
-# Option B: keep them in git — add nothing to .gitignore
 ```
 
-## Project Structure
+To share handoffs with a team, commit them like any other Markdown files.
+
+## Limitations
+
+- Resume quality depends on the details written into the checkpoint.
+- The scaffold does not summarize an entire conversation automatically.
+- A checkpoint with unfilled `TODO`s is a template, not a complete handoff.
+- The project targets Git repositories and requires Python 3 and Git.
+
+## Development
+
+Run the test suite and static checks from the project root:
+
+```bash
+pytest -q
+bash -n install-repo-skills.sh upgrade-repo-skills.sh
+python3 -m compileall -q repo-checkpoint repo-resume tests
+git diff --check
+```
+
+## Project structure
 
 ```text
 agent-checkpoint/
-├── README.md
-├── README.zh-CN.md
-├── CHANGELOG.md
-├── VERSION
-├── LICENSE
-├── assets/
-│   └── demo.gif
 ├── install-repo-skills.sh
+├── upgrade-repo-skills.sh
 ├── repo-checkpoint/
 │   ├── SKILL.md
 │   └── scripts/
@@ -360,25 +211,11 @@ agent-checkpoint/
 │       ├── redact.py
 │       └── resume_snapshot.py
 ├── tests/
-│   ├── conftest.py
-│   ├── test_checkpoint.py
-│   └── test_resume.py
-└── scripts/
-    └── generate_demo_gif.py
+├── assets/demo.gif
+├── CHANGELOG.md
+└── VERSION
 ```
 
 ## License
 
 [MIT License](LICENSE)
-
-## Acknowledgments
-
-- Repo-local continuity workflow patterns developed during long-running coding
-  sessions
-- Git, for making branch and working tree state easy to snapshot and recover
-
----
-
-⚠️ **Note:** Concrete files, constraints, verification state, and next actions
-are what make resume fast. The more specific your checkpoint is, the more
-valuable the next session becomes.

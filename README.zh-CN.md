@@ -1,52 +1,28 @@
 # agent-checkpoint
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Runtime: Python 3](https://img.shields.io/badge/runtime-python3-blue.svg)](https://www.python.org/)
-[![State: Repo Local](https://img.shields.io/badge/state-repo--local-2ea44f.svg)](#工作原理)
-[**English**](./README.md) | **中文**
+[![许可证：MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![运行环境：Python 3](https://img.shields.io/badge/runtime-python3-blue.svg)](https://www.python.org/)
+[![版本：0.4.0](https://img.shields.io/badge/version-0.4.0-2ea44f.svg)](VERSION)
 
-面向编码 agent 的仓库内连续性技能。checkpoint 使用共享的
-`agent-handoff/v1` Markdown 格式，Codex/OpenAI CLI、Claude Code、opencode
-和其他编程智能体可以读写同一个 repo 里的恢复点。
+[English](./README.md) | **中文**
 
-这两个 skill 专门解决一个高频问题：会话断了、模型切了、机器换了，但你又
-不想重新花半小时把上下文捋一遍。它们会把真实工作主线直接落进仓库里，并在
-下次重开时快速恢复。
+面向编码 Agent 的仓库内连续性工具。它把目标、决策、涉及文件、验证结果和
+下一步写入 `.agents/checkpoints/`，这样即使会话中断、切换模型或更换机器，
+也能继续同一条工作主线。
+
+Checkpoint 使用共享的 Markdown 格式，可供 Codex/OpenAI CLI、Claude Code、
+opencode 以及其他能读取 Markdown 的 Agent 使用。
 
 ## 演示
 
 ![repo-checkpoint 和 repo-resume 的终端演示](./assets/demo.gif)
 
-## 它能做什么
+基本流程很简单：会话结束时保存交接信息；下次开始时，先读取交接信息，再继续
+处理代码。
 
-- **repo-checkpoint** —— 在 `.agents/checkpoints/` 下写入带时间戳的
-  Markdown 交接文档，内容包括会话目标、当前状态、关键聊天上下文、涉及文件、
-  验证状态、下一步和 git 快照。
-- **repo-resume** —— 基于最新 checkpoint、当前分支、工作区状态和最近提交，
-  快速恢复当前主线。
+## 快速开始
 
-**为什么需要它：** 大多数 agent 都能重新读代码，但真正容易丢的是“人类
-上下文”—— 用户真实目标、已经试过什么、哪些约束不能破、接下来最该做什么。
-
-## 为什么它有价值
-
-- **进度保存在仓库里，不保存在会话里** —— 浏览器重开、模型切换、shell 断开、
-  换电脑，这些都不会让交接信息消失。
-- **跨 agent 可用** —— Codex 写下的 checkpoint，Claude Code 或 opencode
-  下次可以从同一个 `.agents/checkpoints/` 目录恢复。
-- **纯 Markdown，无锁定** —— 普通编辑器能看，git 能跟踪，团队也能直接读。
-- **恢复路径很短** —— 不用大范围重新扫仓库，先回到最近一次明确主线。
-- **保存的不只是代码状态** —— 目标、约束、排除路线、验证状态和下一步都会写明。
-- **没有 agent runtime 也能用** —— 两个脚本都可以直接手动执行。
-
-## 最适合的场景
-
-- 长时间调试、排障、重构
-- 做到一半被打断，下一轮要立刻续上
-- 本地、远程机器、另一台电脑之间来回切
-- “代码我能看懂，但我不知道当时为什么这么做”的项目
-
-## 1 分钟上手
+前置要求：Python 3、Git 和 Bash。
 
 ```bash
 git clone https://github.com/hotalexnet/agent-checkpoint.git
@@ -54,258 +30,164 @@ cd agent-checkpoint
 bash install-repo-skills.sh
 ```
 
-已有安装可直接从 GitHub 升级：
+在任意 Git 仓库根目录执行：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/hotalexnet/agent-checkpoint/main/upgrade-repo-skills.sh)
-```
-
-然后去目标仓库根目录执行：
-
-```bash
-# 结束前：先生成骨架，再把 TODO 填完整
+# 会话结束：生成交接模板，并把 TODO 填成真实状态。
 python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py \
-  --title "chat-routing-root-cause" \
-  --agent codex
+  --title "chat-routing-root-cause" --agent codex
 
-# 下次重开：直接恢复最近主线
+# 下次开始：恢复当前工作主线。
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
 ```
 
-## 使用流程示意
+## 安装了什么
+
+安装脚本会把两个独立 skill 放到 `~/.agents/skills/`：
+
+- `repo-checkpoint`：在 `.agents/checkpoints/` 下创建 Markdown 交接文档。
+- `repo-resume`：读取当前交接文档、Git 状态、分支和最近提交。
+
+即使没有 Agent runtime，也可以直接运行这两个脚本。
+
+## 常用命令
+
+以下命令都应在目标仓库根目录执行。
+
+为便于阅读，表格省略了 `python3 ~/.agents/skills/.../scripts/` 前缀；实际复制
+到终端时，请参考下面的完整示例。
+
+| 需求 | 命令 |
+| --- | --- |
+| 创建带时间戳的 checkpoint | `save_checkpoint.py --title "work"` |
+| 更新当前主线 | `save_checkpoint.py --current --title "active-lane"` |
+| 让 checkpoint 永不过期 | `save_checkpoint.py --expires-in 0` |
+| 恢复当前主线 | `resume_snapshot.py` |
+| 列出 checkpoint 和状态 | `resume_snapshot.py list` |
+| 检查结构和元数据 | `resume_snapshot.py validate` |
+| 同时拒绝未完成的 `TODO` | `resume_snapshot.py validate --strict` |
+| 保留最新五个快照 | `resume_snapshot.py prune 5` |
+
+例如：
+
+```bash
+CHECKPOINT=~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py
+RESUME=~/.agents/skills/repo-resume/scripts/resume_snapshot.py
+
+python3 "$CHECKPOINT" --current --title "fix-login-flow" --agent codex
+python3 "$RESUME" validate
+python3 "$RESUME" list
+```
+
+生成的文件只是交接模板。把所有 `TODO` 换成这轮真实信息后，再交给下一个
+Agent 或下次会话使用。
+
+## 0.4.0 的主要功能
+
+- **当前主线：** `--current` 会原子地更新
+  `.agents/checkpoints/current.md`；恢复时优先读取它。
+- **过期检测：** 新 checkpoint 默认 30 天后过期；使用 `--expires-in 0`
+  可关闭过期时间。
+- **Git 关联：** 记录创建时的分支和 base commit，并提示分支不匹配或提交不存在。
+- **敏感信息脱敏：** 自动生成的字段在写入前会处理常见密码、Token、API Key、
+  Bearer 凭据、私钥和带认证信息的 URL。手动填写的内容仍需自行检查。
+- **checkpoint 校验：** `validate` 检查 frontmatter、固定章节、过期时间、凭据和
+  base commit；`--strict` 还会拒绝 `TODO`。
+- **安全写入：** 先写入临时文件，再原子替换目标文件，避免半写入。
+
+没有新元数据的旧版时间戳 checkpoint 仍然可以读取，并会显示为 `legacy`。
+
+## checkpoint 保存什么
+
+每个 checkpoint 包含以下固定章节：
 
 ```text
-会话 A：
-- 正在排查一个路由问题
-- 开着多个文件
-- 已经排除过一条错误方向
-        ↓
-repo-checkpoint
-        ↓
-.agents/checkpoints/20260513-114233-chat-routing-root-cause.md
-        ↓
-后续会话 B 在同机或另一台机器上启动
-        ↓
-repo-resume
-        ↓
-最新 checkpoint + 当前分支 + 工作区 + 最近提交
-        ↓
-直接从真实下一步继续，而不是重新猜当时的意图
+Agent Handoff       谁可以恢复，以及如何恢复
+Session Goal        需要完成什么
+Current State       当前已经确认的状态
+Key Chat Context    用户目标和约束
+Files In Play       需要优先关注的文件和路径
+Verification        已经执行过的测试和检查
+Next Step           下一步可执行动作
+Resume Recipe       标准恢复命令
+Git Snapshot        工作区和最近提交
 ```
 
-## 会保存哪些信息
+这些文件就是普通 Markdown，可以像其他项目文件一样查看、编辑、提交、忽略、
+复制或归档。
 
-每个 checkpoint 固定包含这些一级章节：
+## 安装和升级
 
-- `Agent Handoff`
-- `Session Goal`
-- `Current State`
-- `Key Chat Context`
-- `Files In Play`
-- `Verification`
-- `Next Step`
-- `Resume Recipe`
-- `Git Snapshot`
-
-这就是它和“只看代码恢复上下文”之间的本质差异：它保存的是围绕代码的决策
-状态，而不只是代码本身。
-
-## Checkpoint 内容示例
-
-```md
-## Session Goal
-- 修掉 chat fallback 污染，避免未命中问题继续吐出过期 onboarding 引导文案。
-
-## Current State
-- 路由修复已在本地落地。
-- 本地 smoke test 已通过。
-- 预发环境行为还需要单独验证。
-
-## Key Chat Context
-- 用户要的是根因级清理，不是补几个关键词。
-- 旧版 onboarding 文案不能再泄漏到正常聊天回复。
-- 先不扩展到换模型问题。
-
-## Files In Play
-- src/chat/router.py
-- src/prompts/chat_prompt.py
-- tests/test_chat_router.py
-
-## Next Step
-1. 对当前部署链路做复现。
-2. 用 3 个代表性问题验证 fallback 选择。
-3. 确认坏路径消失后再提交。
-```
-
-## 安装
-
-### 前置要求
-
-- `python3`
-- `git`
-- 一个会从 `~/.agents/skills` 加载 skill，或支持 vendored skill 路径的 agent 运行环境
-
-### 方式 1：执行安装脚本
-
-```bash
-bash install-repo-skills.sh
-```
-
-默认安装目录：
-
-```bash
-~/.agents/skills
-```
-
-自定义安装目录：
+安装到自定义目录：
 
 ```bash
 bash install-repo-skills.sh --target /path/to/skills
 ```
 
-### 方式 2：克隆仓库
+从本地克隆目录升级：
 
 ```bash
-git clone https://github.com/hotalexnet/agent-checkpoint.git
-cd agent-checkpoint
-bash install-repo-skills.sh
+bash upgrade-repo-skills.sh
 ```
 
-### 方式 3：直接拷贝 skill 目录
+直接从 GitHub 升级：
 
 ```bash
-mkdir -p ~/.agents/skills
-cp -R repo-checkpoint ~/.agents/skills/
-cp -R repo-resume ~/.agents/skills/
+bash <(curl -fsSL \
+  https://raw.githubusercontent.com/hotalexnet/agent-checkpoint/main/upgrade-repo-skills.sh)
 ```
 
-## 使用方式
+测试当前 checkout 时可以使用 `--no-pull`；使用 `--target DIR` 可以指定其他
+安装目录。安装脚本会先备份已有的 skill 目录，再进行替换。
 
-| 触发语或需求 | 动作 |
-|--------------|------|
-| “保存进度” / “打个 checkpoint” | 运行 `repo-checkpoint` |
-| “继续刚才那条主线” / “我上次在这里做到哪了” | 运行 `repo-resume` |
-| “列出所有 checkpoint” | 运行 `repo-resume list` |
-| “检查 checkpoint 是否有效” | 运行 `repo-resume validate` |
-| “清理旧 checkpoint” | 运行 `repo-resume prune 5` |
+## 跨 Agent 和多机器使用
 
-在目标仓库根目录手动执行：
+交接格式不绑定某个工具，典型流程如下：
 
-```bash
-python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "my-work"
-python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --current --title "active-lane"
-python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "long-lived-work" --expires-in 0
-python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
-python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py list
-python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py validate
-python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py validate --strict
-python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py prune 5
-```
+1. Agent A 运行 `save_checkpoint.py`，并填写交接内容。
+2. 根据隐私需要，提交 checkpoint、复制到其他机器，或只保留在本地。
+3. Agent B 在同一个仓库中运行 `resume_snapshot.py`。
 
-`--current` 会原子地更新 `.agents/checkpoints/current.md`，`repo-resume` 会优先把它作为当前主线；带时间戳的快照仍会保留用于历史记录。新 checkpoint 默认 30 天后标记为过期，使用 `--expires-in 0` 可关闭过期时间。写入前会脱敏常见凭据。`validate` 会检查结构、凭据、过期元数据和记录的 Git 提交；`--strict` 还会拒绝未填写的 `TODO` 占位符。
+在另一台机器上，可以重新 clone 本项目并执行安装脚本，也可以把
+`repo-checkpoint/` 和 `repo-resume/` 目录复制到对应的 skill 目录。
 
-## 推荐工作流
+## 隐私和 Git 建议
 
-### 1. 结束前
+Checkpoint 可能包含项目名称、路径、任务细节和 Git 输出。程序会脱敏常见的
+凭据格式，但任何基于规则的扫描器都不能保证识别所有秘密。提交前请人工检查。
 
-先跑 `repo-checkpoint`，然后把所有 `TODO` 替换成这轮真实状态。
-
-### 2. 下次重开时
-
-先跑 `repo-resume`，再决定要不要大范围看仓库。
-
-### 3. 保证 checkpoint 可执行
-
-一个好的 checkpoint，应该让下一轮快速回答这些问题：
-
-- 我们到底要完成什么？
-- 现在已经确认了什么？
-- 哪些东西绝对不能破？
-- 先看哪些文件最有效？
-- 下一步应该做什么？
-
-## 为什么 repo-local 比外部聊天记忆更稳
-
-- 外部会话记忆常常不可用、残缺，或者和某个工具强绑定
-- 仓库内交接文档会跟着代码一起走
-- 团队成员和未来的自己都能直接查看，不依赖特殊平台
-- 你可以像管理普通文件一样管理这些 checkpoint：提交、忽略、归档、拷贝
-
-## 工作原理
-
-```text
-当前编码会话
-    ↓
-repo-checkpoint
-    ↓
-在 .agents/checkpoints/ 下写入带时间戳的交接文档
-    ↓
-后续新会话启动
-    ↓
-repo-resume
-    ↓
-读取最新 checkpoint + 当前 git 状态
-    ↓
-以最小冷启动成本继续原来的主线
-```
-
-## 兼容性
-
-- 任何 git 仓库
-- 本地机器或远程服务器
-- 支持跨机器复用
-- 即使 agent runtime 不自动加载 skill，也可以直接手动跑脚本
-
-## 多机器使用
-
-你可以：
-
-- 在另一台机器上 clone 本仓库再执行安装脚本，或者
-- 直接把 `repo-checkpoint/` 和 `repo-resume/` 拷到那台机器的
-  `~/.agents/skills/`
-
-## 更新方式
-
-如果已经安装过旧版本，重新执行：
-
-```bash
-bash install-repo-skills.sh
-```
-
-安装脚本会覆盖：
-
-- `~/.agents/skills/repo-checkpoint`
-- `~/.agents/skills/repo-resume`
-
-## 边界和限制
-
-- 恢复质量取决于 checkpoint 质量。
-- 这个骨架是刻意保持简单的，它不会替你自动总结整轮会话。
-- 如果 `TODO` 没填，下一轮仍然要靠人自己补意图。
-
-## .gitignore 建议
-
-Checkpoint 保存在 `.agents/checkpoints/` 下。你可以选择提交到 git（方便团队成员互相恢复上下文），也可以选择 gitignore（当个人笔记用）：
+如果不希望把个人交接记录提交到 Git，可以加入：
 
 ```gitignore
-# 方式 A：忽略所有 checkpoint
 .agents/checkpoints/
+```
 
-# 方式 B：提交到 git — 不需要加任何 .gitignore 规则
+如果需要团队共享，就像普通 Markdown 文件一样提交 checkpoint。
+
+## 限制
+
+- 恢复质量取决于 checkpoint 是否写得具体。
+- 工具不会自动总结整轮会话。
+- 没有填写完的 `TODO` 只是模板，不是完整交接文档。
+- 项目面向 Git 仓库，需要 Python 3 和 Git。
+
+## 开发和测试
+
+在项目根目录执行：
+
+```bash
+pytest -q
+bash -n install-repo-skills.sh upgrade-repo-skills.sh
+python3 -m compileall -q repo-checkpoint repo-resume tests
+git diff --check
 ```
 
 ## 项目结构
 
 ```text
 agent-checkpoint/
-├── README.md
-├── README.zh-CN.md
-├── CHANGELOG.md
-├── VERSION
-├── LICENSE
-├── assets/
-│   └── demo.gif
 ├── install-repo-skills.sh
+├── upgrade-repo-skills.sh
 ├── repo-checkpoint/
 │   ├── SKILL.md
 │   └── scripts/
@@ -317,23 +199,11 @@ agent-checkpoint/
 │       ├── redact.py
 │       └── resume_snapshot.py
 ├── tests/
-│   ├── conftest.py
-│   ├── test_checkpoint.py
-│   └── test_resume.py
-└── scripts/
-    └── generate_demo_gif.py
+├── assets/demo.gif
+├── CHANGELOG.md
+└── VERSION
 ```
 
 ## 许可证
 
 [MIT License](LICENSE)
-
-## 致谢
-
-- 长程编码会话中沉淀出来的 repo-local continuity 工作流
-- Git，让分支状态和工作区状态可以被稳定地记录和恢复
-
----
-
-⚠️ **说明：** 文件、约束、验证状态和下一步写得越具体，恢复速度就越快，
-这个 skill 的价值也就越高。
