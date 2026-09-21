@@ -21,6 +21,10 @@ agent. The checkpoint belongs to the repository, not to a particular tool.
 - what files were in play
 - what remains next
 
+Use `save_checkpoint.py --current` when maintaining one active lane; it atomically
+updates `current.md` without replacing historical snapshots. New checkpoints carry
+expiry and base-commit metadata, and common credentials are redacted before write.
+
 ## Mandatory first step
 
 From the target repo root, run:

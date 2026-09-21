@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-09-21
+
+### Added
+
+- `save_checkpoint.py --current` for an atomic, continuously replaceable `current.md` handoff.
+- Optional checkpoint expiry metadata with `--expires-in DAYS` (30 days by default; `0` disables expiry).
+- Redaction of common passwords, tokens, private keys, bearer credentials, and credential-bearing URLs before writing.
+- `resume_snapshot.py validate [--strict]` for structure, expiry, Git commit, and credential checks.
+- Resume and list warnings for expired checkpoints and branch or base-commit mismatches.
+
+### Compatibility
+
+- Existing timestamped checkpoints remain readable; legacy checkpoints are reported as `legacy`.
+- Existing commands and the `agent-handoff/v1` document schema remain compatible.
+
 ## [0.3.1] - 2026-09-21
 
 ### Fixed

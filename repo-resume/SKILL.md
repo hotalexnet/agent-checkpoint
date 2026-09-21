@@ -26,6 +26,12 @@ script from the vendored path.
 3. Read `Agent Handoff`, `Files In Play`, and `Next Step` first. Open only
    those files unless the checkpoint is stale.
 
+`current.md`, when present, is the active lane and takes precedence over
+timestamped snapshots. Resume reports expiry and warns when the checkpoint branch
+or recorded base commit no longer matches the repository. Run `resume_snapshot.py
+validate --strict` before handing work to another agent when a complete checkpoint
+is required.
+
 ## Checkpoint management
 
 ```bash
@@ -34,6 +40,7 @@ python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py list
 
 # Prune old checkpoints, keep 5 most recent
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py prune 5
+python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py validate --strict
 ```
 
 ## Report shape

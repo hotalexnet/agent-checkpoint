@@ -112,6 +112,24 @@ def test_same_title_same_second_does_not_overwrite(git_repo: Path):
     assert len(files) == 2
 
 
+def test_current_mode_redacts_title_and_updates_single_file(git_repo: Path):
+    first = run_checkpoint(git_repo, "password=supersecret",)
+    assert first.returncode == 0
+    current = subprocess.run(
+        ["python3", str(SCRIPT), "--current", "--title", "token=ghp_abcdefghijklmnopqrstuvwxyz1234567890"],
+        cwd=git_repo,
+        capture_output=True,
+        text=True,
+    )
+    assert current.returncode == 0
+    current_file = git_repo / ".agents" / "checkpoints" / "current.md"
+    assert current_file.exists()
+    content = current_file.read_text()
+    assert "[REDACTED]" in content
+    assert "supersecret" not in content
+    assert len(list((git_repo / ".agents" / "checkpoints").glob("*.md"))) == 2
+
+
 def test_version_flag():
     result = subprocess.run(
         ["python3", str(SCRIPT), "--version"],
@@ -119,7 +137,7 @@ def test_version_flag():
         text=True,
     )
     assert result.returncode == 0
-    assert "0.3.1" in result.stdout
+    assert "0.4.0" in result.stdout
 
 
 def test_install_preserves_previous_skill_files(tmp_path: Path):

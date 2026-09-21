@@ -193,6 +193,7 @@ cp -R repo-resume ~/.agents/skills/
 | "save progress" / "checkpoint this" | run `repo-checkpoint` |
 | "continue where we left off" / "what was I doing?" | run `repo-resume` |
 | "show all checkpoints" | run `repo-resume list` |
+| "check checkpoint health" | run `repo-resume validate` |
 | "clean up old checkpoints" | run `repo-resume prune 5` |
 
 Manual commands from the target repo root:
@@ -200,10 +201,21 @@ Manual commands from the target repo root:
 ```bash
 python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "my-work"
 python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "my-work" --agent claude-code
+python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --current --title "active-lane"
+python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "long-lived-work" --expires-in 0
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py list
+python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py validate
+python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py validate --strict
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py prune 5
 ```
+
+`--current` atomically updates `.agents/checkpoints/current.md`, which is preferred
+by `repo-resume` as the active lane. Timestamped snapshots remain available for
+history. New checkpoints expire after 30 days by default; use `--expires-in 0` to
+disable expiry. Common credentials are redacted before a checkpoint is written.
+`validate` checks structure, credentials, expiry metadata, and the recorded Git
+commit. `--strict` additionally rejects unfinished `TODO` placeholders.
 
 ## Upgrade
 
@@ -340,10 +352,12 @@ agent-checkpoint/
 ├── repo-checkpoint/
 │   ├── SKILL.md
 │   └── scripts/
+│       ├── redact.py
 │       └── save_checkpoint.py
 ├── repo-resume/
 │   ├── SKILL.md
 │   └── scripts/
+│       ├── redact.py
 │       └── resume_snapshot.py
 ├── tests/
 │   ├── conftest.py

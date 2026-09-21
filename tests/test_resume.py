@@ -79,6 +79,36 @@ def test_list_with_checkpoints(git_repo: Path):
     assert "2 checkpoint(s)" in result.stdout
 
 
+def test_validate_generated_checkpoint(git_repo: Path):
+    create_checkpoint(git_repo)
+    result = run_resume(git_repo, "validate")
+    assert result.returncode == 0
+    assert "Validated 1 checkpoint(s); 0 invalid." in result.stdout
+
+    strict = run_resume(git_repo, "validate", "--strict")
+    assert strict.returncode != 0
+    assert "TODO placeholders" in strict.stdout
+
+
+def test_resume_warns_when_checkpoint_branch_differs(git_repo: Path):
+    create_checkpoint(git_repo, "branch-check")
+    subprocess.run(["git", "checkout", "-qb", "other"], cwd=git_repo, check=True, capture_output=True)
+    result = run_resume(git_repo)
+    assert result.returncode == 0
+    assert "branch-mismatch" in result.stdout
+    assert "does not fully match" in result.stdout
+
+
+def test_resume_marks_expired_checkpoint(git_repo: Path):
+    create_checkpoint(git_repo, "expiry-check")
+    checkpoint = next((git_repo / ".agents" / "checkpoints").glob("*.md"))
+    content = checkpoint.read_text().replace("expires_at: ", "expires_at: 2000-01-01 00:00:00 +0000\n# old-expires_at: ", 1)
+    checkpoint.write_text(content)
+    result = run_resume(git_repo)
+    assert result.returncode == 0
+    assert "Status: `stale`" in result.stdout
+
+
 def test_prune_nothing_to_do(git_repo: Path):
     create_checkpoint(git_repo, "only-one")
     result = run_resume(git_repo, "prune", "5")
@@ -124,7 +154,7 @@ def test_version_flag():
         text=True,
     )
     assert result.returncode == 0
-    assert "0.3.1" in result.stdout
+    assert "0.4.0" in result.stdout
 
 
 def test_upgrade_script_help():

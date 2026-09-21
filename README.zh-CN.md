@@ -186,16 +186,23 @@ cp -R repo-resume ~/.agents/skills/
 | “保存进度” / “打个 checkpoint” | 运行 `repo-checkpoint` |
 | “继续刚才那条主线” / “我上次在这里做到哪了” | 运行 `repo-resume` |
 | “列出所有 checkpoint” | 运行 `repo-resume list` |
+| “检查 checkpoint 是否有效” | 运行 `repo-resume validate` |
 | “清理旧 checkpoint” | 运行 `repo-resume prune 5` |
 
 在目标仓库根目录手动执行：
 
 ```bash
 python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "my-work"
+python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --current --title "active-lane"
+python3 ~/.agents/skills/repo-checkpoint/scripts/save_checkpoint.py --title "long-lived-work" --expires-in 0
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py list
+python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py validate
+python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py validate --strict
 python3 ~/.agents/skills/repo-resume/scripts/resume_snapshot.py prune 5
 ```
+
+`--current` 会原子地更新 `.agents/checkpoints/current.md`，`repo-resume` 会优先把它作为当前主线；带时间戳的快照仍会保留用于历史记录。新 checkpoint 默认 30 天后标记为过期，使用 `--expires-in 0` 可关闭过期时间。写入前会脱敏常见凭据。`validate` 会检查结构、凭据、过期元数据和记录的 Git 提交；`--strict` 还会拒绝未填写的 `TODO` 占位符。
 
 ## 推荐工作流
 
@@ -302,10 +309,12 @@ agent-checkpoint/
 ├── repo-checkpoint/
 │   ├── SKILL.md
 │   └── scripts/
+│       ├── redact.py
 │       └── save_checkpoint.py
 ├── repo-resume/
 │   ├── SKILL.md
 │   └── scripts/
+│       ├── redact.py
 │       └── resume_snapshot.py
 ├── tests/
 │   ├── conftest.py
